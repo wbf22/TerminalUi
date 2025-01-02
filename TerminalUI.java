@@ -32,7 +32,7 @@ public class TerminalUI {
                     AnsiControl.setCursor(x + 1, y + 1);
                     System.out.print(
                         AnsiControl.background(pixel.backgroundColor.r, pixel.backgroundColor.g, pixel.backgroundColor.b) + 
-                        AnsiControl.color(pixel.textColor.r, pixel.textColor.b, pixel.textColor.g) + 
+                        AnsiControl.color(pixel.textColor.r, pixel.textColor.g, pixel.textColor.b) + 
                         pixel.character
                     );
                 }
@@ -76,9 +76,8 @@ public class TerminalUI {
 
 
         public Pixel[][] render(View parent, int allotedWidth, int allotedHeight) {
-            List<Integer> dims = View.getPixel(this.width, this.widthType, this.height, this.heightType, allotedWidth, allotedHeight);
-            int pixelWidth = dims.get(0);
-            int pixelHeight = dims.get(1);
+            int pixelWidth = getPixelWidth(allotedWidth, allotedHeight);
+            int pixelHeight = getPixelHeight(allotedWidth, allotedHeight);
 
             Pixel[][] pixels = new Pixel[pixelWidth][pixelHeight];
             if (this.backgroundColor != null) {
@@ -97,8 +96,8 @@ public class TerminalUI {
         }
 
         protected void copyToArray(View parent, Pixel[][] pixels) {
-            Integer allotedWidth = parent.getContentWidth(pixels.length, pixels[0].length);
-            Integer allotedHeight = parent.getContentHeight(pixels.length, pixels[0].length);
+            Integer allotedWidth = parent.getPixelWidth(pixels.length, pixels[0].length);
+            Integer allotedHeight = parent.getPixelHeight(pixels.length, pixels[0].length);
 
             List<Integer> coors = View.getPixel(this.x, this.xType, this.y, this.yType, allotedWidth, allotedHeight);
             int pixelX = coors.get(0);
@@ -118,7 +117,7 @@ public class TerminalUI {
             }
         }
 
-        public int getContentWidth(Integer allotedWidth, Integer allotedHeight) {
+        public int getPixelWidth(Integer allotedWidth, Integer allotedHeight) {
             if (this.widthType == UnitType.FIT_CONTENT) {
                 return getFitContentWidth(allotedWidth, allotedHeight);
             }
@@ -128,7 +127,7 @@ public class TerminalUI {
                 return pixelWidth;
             }
         }
-        public int getContentHeight(Integer allotedWidth, Integer allotedHeight) {
+        public int getPixelHeight(Integer allotedWidth, Integer allotedHeight) {
             if (this.heightType == UnitType.FIT_CONTENT) {
                 return getFitContentHeight(allotedWidth, allotedHeight);
             }
@@ -180,7 +179,7 @@ public class TerminalUI {
                 int width = 0;
                 for (View child : this.children) {
                     int xPixel = child.getPixelX(this, allotedWidth);
-                    width = Math.max(width, child.getContentWidth(allotedWidth, allotedHeight) + xPixel);
+                    width = Math.max(width, child.getPixelWidth(allotedWidth, allotedHeight) + xPixel);
                 }
                 return width;
             }
@@ -193,7 +192,7 @@ public class TerminalUI {
                 int height = 0;
                 for (View child : this.children) {
                     int yPixel = child.getPixelY(this, allotedHeight);
-                    height = Math.max(height, child.getContentHeight(allotedWidth, allotedHeight) + yPixel);
+                    height = Math.max(height, child.getPixelHeight(allotedWidth, allotedHeight) + yPixel);
                 }
                 return height;
             }
@@ -302,7 +301,7 @@ public class TerminalUI {
                 return 1;
             }
             else {
-                double div = (double) allotedWidth / text.length();
+                double div = (double) text.length() / allotedWidth;
                 return (int) Math.ceil(div);
             }
         }
@@ -326,8 +325,8 @@ public class TerminalUI {
 
             // set text to hint color
             Pixel[][] pixels = super.render(parent, allotedWidth, allotedHeight);
-            for (int x = 0; x < pixels.length - 1; x++) {
-                for (int y = 0; y < pixels[0].length - 1; y++) {
+            for (int x = 0; x < pixels.length; x++) {
+                for (int y = 0; y < pixels[0].length; y++) {
                     if (pixels[x][y].textColor != null) {
                         pixels[x][y].textColor = this.hintColor;
                     }

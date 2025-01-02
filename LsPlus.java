@@ -13,13 +13,18 @@ public class LsPlus extends TerminalUI {
         Text text = new Text("Hi there!");
         text.y = 10;
         text.height = 10;
-        text.backgroundColor = new Color(61, 61, 61); // rgb(61, 61, 61)
         text.horizontalAlignment = Text.Alignment.CENTER;
+        text.verticalAlignment = Text.Alignment.CENTER;
 
         InputBox inputBox = new InputBox();
         inputBox.y = 20;
-        inputBox.height = 10;
-        inputBox.backgroundColor = new Color(47, 47, 47); // rgb(47, 47, 47)
+        inputBox.x = 40;
+        inputBox.heightType = UnitType.FIT_CONTENT;
+        inputBox.width = 20;
+        inputBox.widthType = UnitType.FIT_CONTENT;
+        inputBox.backgroundColor = new Color(61, 61, 61); // rgb(61, 61, 61)
+        inputBox.hintColor = new Color(31, 31, 31); // rgb(31, 31, 31)
+        inputBox.hint = "Enter your name";
         inputBox.horizontalAlignment = Text.Alignment.CENTER;
 
 
@@ -30,7 +35,6 @@ public class LsPlus extends TerminalUI {
 
         this.render();
 
-        // test();
 
     }
 
@@ -81,19 +85,54 @@ public class LsPlus extends TerminalUI {
 
 
     public static void test_one_pixel() {
+
+        // rgb(0, 255, 0)
+        // rgb(255, 0, 0)
+        // rgb(0, 0, 255)
+        
+
         System.out.print(AnsiControl.CLEAR_SREEN);
         System.out.flush();
 
         Pixel pixel = new Pixel();
-        pixel.backgroundColor = new Color(40, 40, 40);
-        pixel.textColor = new Color(200, 200, 200);
+        pixel.backgroundColor = new Color(0, 0, 0);
+        pixel.textColor = new Color(0, 255, 0); // rgb(0, 255, 0)
         pixel.character = 'H';
 
         System.out.print(
             AnsiControl.background(pixel.backgroundColor.r, pixel.backgroundColor.g, pixel.backgroundColor.b) + 
-            AnsiControl.color(pixel.textColor.r, pixel.textColor.b, pixel.textColor.g) + 
+            AnsiControl.color(pixel.textColor.r, pixel.textColor.g, pixel.textColor.b) + 
             pixel.character
         );
+        System.out.print(AnsiControl.RESET);
+        System.out.flush();
+
+    }
+
+    public static void test_text_color() {
+        String background = "\u001B[48;2;0;0;0m";
+        String textColor = "\u001B[38;2;0;255;0m";
+        
+        String msg = background + textColor + "Hello, World!";
+        System.out.println(msg);
+        System.out.println(AnsiControl.RESET);
+
+
+        String test_msg = AnsiControl.background(0,0,0) + AnsiControl.color(0,255,0) + 'H';
+        System.out.println(test_msg);
+        System.out.println(AnsiControl.RESET);
+
+
+        Pixel pixel = new Pixel();
+        pixel.backgroundColor = new Color(0, 0, 0);
+        pixel.textColor = new Color(0, 255, 0); // rgb(0, 255, 0)
+        pixel.character = 'H';
+
+        String test_2_msg = AnsiControl.background(pixel.backgroundColor.r, pixel.backgroundColor.g, pixel.backgroundColor.b) + 
+                            AnsiControl.color(pixel.textColor.r, pixel.textColor.g, pixel.textColor.b) + 
+                            pixel.character;
+
+        System.out.print(test_2_msg);
         System.out.print(AnsiControl.RESET);
         System.out.flush();
 
