@@ -70,13 +70,20 @@ public class TerminalUI {
         // children
         public List<View> children = new ArrayList<>();
 
-        public Pixel[][] render(View parent, int allotedWidth, int allotedHeight) {
-            refreshHeightAndWidth(allotedWidth, allotedHeight);
+        // user interaction
+        public boolean isSelectable = false;
+        Color selectedColor = new Color(13, 23, 32); // rgb(13, 23, 32)
 
-            Pixel[][] pixels = new Pixel[this.width][this.height];
+
+        public Pixel[][] render(View parent, int allotedWidth, int allotedHeight) {
+            List<Integer> dims = View.getPixel(this.width, this.widthType, this.height, this.heightType, allotedWidth, allotedHeight);
+            int pixelWidth = dims.get(0);
+            int pixelHeight = dims.get(1);
+
+            Pixel[][] pixels = new Pixel[pixelWidth][pixelHeight];
             if (this.backgroundColor != null) {
-                for (int yP = 0; yP < this.height; yP++) {
-                    for (int xP = 0; xP < this.width; xP++) {
+                for (int yP = 0; yP < pixelHeight; yP++) {
+                    for (int xP = 0; xP < pixelWidth; xP++) {
                         pixels[xP][yP] = new Pixel();
                         pixels[xP][yP].backgroundColor = backgroundColor;
                     }
@@ -90,17 +97,16 @@ public class TerminalUI {
         }
 
         protected void copyToArray(View parent, Pixel[][] pixels) {
-            List<Integer> coors = View.getPixel(this.x, this.xType, this.y, this.yType);
+            Integer allotedWidth = parent.getContentWidth(pixels.length, pixels[0].length);
+            Integer allotedHeight = parent.getContentHeight(pixels.length, pixels[0].length);
+
+            List<Integer> coors = View.getPixel(this.x, this.xType, this.y, this.yType, allotedWidth, allotedHeight);
             int pixelX = coors.get(0);
             int pixelY = coors.get(1);
 
-            List<Integer> sizes = View.getPixel(this.width, this.widthType, this.height, this.heightType);
-            int pixelWidth = sizes.get(0);
-            int pixelHeight = sizes.get(1);
-
-            Pixel[][] renderedPixels = this.render(parent, pixelWidth, pixelHeight);
-            for (int xP = 0; xP < pixelWidth; xP++) {
-                for (int yP = 0; yP < pixelHeight; yP++) {
+            Pixel[][] renderedPixels = this.render(parent, allotedWidth, allotedHeight);
+            for (int xP = 0; xP < renderedPixels.length; xP++) {
+                for (int yP = 0; yP < renderedPixels[0].length; yP++) {
                     if (renderedPixels[xP][yP] != null) {
                         int xCoor = xP + pixelX;
                         int yCoor = yP + pixelY;
@@ -113,34 +119,26 @@ public class TerminalUI {
         }
 
         public int getContentWidth(Integer allotedWidth, Integer allotedHeight) {
-            refreshHeightAndWidth(allotedWidth, allotedHeight);
-            return this.width;
+            if (this.widthType == UnitType.FIT_CONTENT) {
+                return getFitContentWidth(allotedWidth, allotedHeight);
+            }
+            else {
+                List<Integer> dims = View.getPixel(this.width, this.widthType, this.height, this.heightType, allotedWidth, allotedHeight);
+                int pixelWidth = dims.get(0);
+                return pixelWidth;
+            }
         }
         public int getContentHeight(Integer allotedWidth, Integer allotedHeight) {
-            refreshHeightAndWidth(allotedWidth, allotedHeight);
-            return this.height;
+            if (this.heightType == UnitType.FIT_CONTENT) {
+                return getFitContentHeight(allotedWidth, allotedHeight);
+            }
+            else {
+                List<Integer> dims = View.getPixel(this.width, this.widthType, this.height, this.heightType, allotedWidth, allotedHeight);
+                int pixelHeight = dims.get(1);
+                return pixelHeight;
+            }
         }
         
-        protected void refreshHeightAndWidth(Integer allotedWidth, Integer allotedHeight) {
-            // resize view if any size types are set to FIT_CONTENT
-            this.setFitContentWidthAndHeight(allotedWidth, allotedHeight);
-            
-            // if size types are percentage, convert to pixels
-            if (this.widthType == UnitType.PERCENTAGE) {
-                this.width = (int) (allotedWidth * this.width / 100.0);
-            }
-            if (this.heightType == UnitType.PERCENTAGE) {
-                this.height = (int) (allotedHeight * this.height / 100.0);
-            }
-
-            // if size types are pixel, set width and height to pixel values
-            if (this.widthType == UnitType.PIXEL) {
-                this.width = allotedWidth;
-            }
-            if (this.heightType == UnitType.PIXEL) {
-                this.height = allotedHeight;
-            }
-        }
         protected Integer getPixelX(View parent, Integer parentWidth) {
 
             // check for weirdness
@@ -174,52 +172,40 @@ public class TerminalUI {
                 return this.y;
             }
         }
-        protected void setFitContentWidthAndHeight(Integer allotedWidth, Integer allotedHeight) {
-            if (this.widthType == UnitType.FIT_CONTENT && this.heightType == UnitType.FIT_CONTENT) {
-                if (this.children.isEmpty()) {
-                    this.width = 0;
-                    this.height = 0;
-                }
-                else {
-                    for (View child : this.children) {
-                        int xPixel = child.getPixelX(this, allotedWidth);
-                        int yPixel = child.getPixelY(this, allotedHeight);
-                        this.width = Math.max(width, child.getContentWidth(allotedWidth, allotedHeight) + xPixel);
-                        this.height = Math.max(height, child.getContentHeight(allotedWidth, allotedHeight) + yPixel);
-                    }
-                }
+        protected Integer getFitContentWidth(Integer allotedWidth, Integer allotedHeight) {
+            if (this.children.isEmpty()) {
+                return 0;
             }
-            else if (widthType == UnitType.FIT_CONTENT) {
-                if (this.children.isEmpty()) {
-                    this.width = 0;
+            else {
+                int width = 0;
+                for (View child : this.children) {
+                    int xPixel = child.getPixelX(this, allotedWidth);
+                    width = Math.max(width, child.getContentWidth(allotedWidth, allotedHeight) + xPixel);
                 }
-                else {
-                    for (View child : this.children) {
-                        int xPixel = child.getPixelX(this, allotedWidth);
-                        this.width = Math.max(width, child.getContentWidth(allotedWidth, allotedHeight) + xPixel);
-                    }
-                }
-            }
-            else if (heightType == UnitType.FIT_CONTENT) {
-                if (this.children.isEmpty()) {
-                    this.height = 0;
-                }
-                else {
-                    for (View child : this.children) {
-                        int yPixel = child.getPixelY(this, allotedHeight);
-                        this.height = Math.max(height, child.getContentHeight(allotedWidth, allotedHeight) + yPixel);
-                    }
-                }
+                return width;
             }
         }
-        
-        private static List<Integer> getPixel(int x, UnitType xType, int y, UnitType yType) {
-            int xPixel = xType == UnitType.PIXEL ? x : (int) (x * getTerminalWidth() / 100.0);
-            int yPixel = yType == UnitType.PIXEL ? y : (int) (y * getTerminalHeight() / 100.0);
+        protected Integer getFitContentHeight(Integer allotedWidth, Integer allotedHeight) {
+            if (this.children.isEmpty()) {
+                return 0;
+            }
+            else {
+                int height = 0;
+                for (View child : this.children) {
+                    int yPixel = child.getPixelY(this, allotedHeight);
+                    height = Math.max(height, child.getContentHeight(allotedWidth, allotedHeight) + yPixel);
+                }
+                return height;
+            }
+        }
+
+
+        private static List<Integer> getPixel(int x, UnitType xType, int y, UnitType yType, Integer allotedWidth, Integer allotedHeight) {
+            int xPixel = xType == UnitType.PIXEL ? x : (int) Math.ceil(x * allotedWidth / 100.0);
+            int yPixel = yType == UnitType.PIXEL ? y : (int) Math.ceil(y * allotedHeight / 100.0);
             return List.of(xPixel, yPixel);
         }
     }
-
 
     public static class Text extends View {
         public enum Alignment {
@@ -231,7 +217,7 @@ public class TerminalUI {
         }
 
         public String text = "";
-        public Color textColor = new Color(255, 255, 255); // rgb(255, 255, 255)
+        public Color textColor = new Color(225, 225, 225); // rgb(225, 225, 225)
         public Alignment horizontalAlignment = Alignment.LEFT;
         public Alignment verticalAlignment = Alignment.TOP;
         public boolean wrap = false;
@@ -250,6 +236,10 @@ public class TerminalUI {
 
             if (this.text != null) {
 
+                // get pixel width and height
+                int pixelWidth = pixels.length;
+                int pixelHeight = pixels[0].length;
+
 
                 // apply text to pixels
                 int y;
@@ -257,36 +247,38 @@ public class TerminalUI {
                     y = 0;
                 }
                 else if (verticalAlignment == Alignment.CENTER) {
-                    y = this.height / 2;
+                    y = pixelHeight / 2;
                 }
                 else if (verticalAlignment == Alignment.BOTTOM) {
-                    y = this.height - 1;
+                    y = pixelHeight - 1;
                 }
                 else {
                     throw new RuntimeException("verticalAlignment can only be TOP, CENTER or BOTTOM");
                 }
 
                 if (horizontalAlignment == Alignment.RIGHT) {
-                    int x = this.width - 1;
+                    int x = pixelWidth - 1;
                     for (int i = text.length() - 1; i >= 0; i--) {
                         if (x < 0) {
                             if (!this.wrap) break;
-                            if (y < this.height - 1) y++;
+                            if (y < pixelHeight - 1) y++;
                             else break;
                         }
                         pixels[x][y].character = text.charAt(i);
+                        pixels[x][y].textColor = this.textColor;
                         x--;
                     }
                 }
                 else if (horizontalAlignment == Alignment.LEFT || horizontalAlignment == Alignment.CENTER){
-                    int x = horizontalAlignment == Alignment.LEFT? 0 : this.width / 2 - text.length() / 2;
+                    int x = horizontalAlignment == Alignment.LEFT? 0 : pixelWidth / 2 - text.length() / 2;
                     for (int i = 0; i < text.length(); i++) {
-                        if (x > this.width - 1) {
+                        if (x > pixelWidth - 1) {
                             if (!this.wrap) break;
-                            if (y < this.height - 1) y++;
+                            if (y < pixelHeight - 1) y++;
                             else break;
                         }
                         pixels[x][y].character = text.charAt(i);
+                        pixels[x][y].textColor = this.textColor;
                         x++;
                     }
                 } 
@@ -298,25 +290,55 @@ public class TerminalUI {
             return pixels;
         }
 
+
         @Override
-        protected void setFitContentWidthAndHeight(Integer allotedWidth, Integer allotedHeight) {
-            if (this.widthType == UnitType.FIT_CONTENT && this.heightType == UnitType.FIT_CONTENT) {
-                this.width = text.length();
-                this.height = 1;
+        protected Integer getFitContentWidth(Integer allotedWidth, Integer allotedHeight) {
+            return text.length();
+        }
+
+        @Override
+        protected Integer getFitContentHeight(Integer allotedWidth, Integer allotedHeight) {
+            if (this.widthType == UnitType.FIT_CONTENT) {
+                return 1;
             }
-            else if (widthType == UnitType.FIT_CONTENT) {
-                this.width = text.length();
-            }
-            else if (heightType == UnitType.FIT_CONTENT) {
+            else {
                 double div = (double) allotedWidth / text.length();
-                this.height = (int) Math.ceil(div);
+                return (int) Math.ceil(div);
             }
         }
 
 
 
+
     }
-    
+
+    public static class InputBox extends Text {
+        public String hint = "Hint";
+        public Color hintColor = new Color(125, 125, 125); // rgb(125, 125, 125)
+
+
+        @Override
+        public Pixel[][] render(View parent, int allotedWidth, int allotedHeight) {
+            // if text is empty, show hint
+            if (text.isEmpty()) {
+                this.text = this.hint;
+            }
+
+            // set text to hint color
+            Pixel[][] pixels = super.render(parent, allotedWidth, allotedHeight);
+            for (int x = 0; x < pixels.length - 1; x++) {
+                for (int y = 0; y < pixels[0].length - 1; y++) {
+                    if (pixels[x][y].textColor != null) {
+                        pixels[x][y].textColor = this.hintColor;
+                    }
+                }
+            }
+            return pixels;
+        }
+
+
+    }
+
 
     public static class Pixel {
 

@@ -12,13 +12,20 @@ public class LsPlus extends TerminalUI {
         
         Text text = new Text("Hi there!");
         text.y = 10;
+        text.height = 10;
+        text.backgroundColor = new Color(61, 61, 61); // rgb(61, 61, 61)
         text.horizontalAlignment = Text.Alignment.CENTER;
+
+        InputBox inputBox = new InputBox();
+        inputBox.y = 20;
+        inputBox.height = 10;
+        inputBox.backgroundColor = new Color(47, 47, 47); // rgb(47, 47, 47)
+        inputBox.horizontalAlignment = Text.Alignment.CENTER;
 
 
         this.view = new View();
-        this.view.children.add(
-            text
-        );
+        this.view.children.add( text );
+        this.view.children.add( inputBox );
 
 
         this.render();
