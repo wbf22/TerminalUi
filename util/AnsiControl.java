@@ -7,7 +7,10 @@ public enum AnsiControl {
     CLEAR_SREEN("\u001B[2J\u001B[H"),
     RESET_FONT_SIZE("\u001B[0m"),
     SIZE("\u001B[=18h"),
-    SET_FONT_SIZE("\u001B[");
+    SET_FONT_SIZE("\u001B["),
+    HIDE_CURSOR("\u001B[?25l"),
+    SHOW_CURSOR("\u001B[?25h");
+
 
     
     // public static String CLEAR_SREEN = "\u001B[2J\u001B[H";

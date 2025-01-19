@@ -11,7 +11,8 @@
             "mainClass": "LsPlus",
             "projectName": "TerminalUi_525bfced"
             // ,
-            // "console": "externalTerminal"
+            // "console": "externalTerminal",
+            
         }
     ]
 }

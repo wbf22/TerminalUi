@@ -1,43 +1,136 @@
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Random;
+import java.util.Set;
+
 import util.AnsiControl;
+import util.Pair;
+import util.RandomPlus;
 
 public class LsPlus extends TerminalUI {
-    public static void main(String[] args) {
-        
 
-        LsPlus plus = new LsPlus();
-        plus.run();
+    private static int LIST_WIDTH = 30; // 30 px
+    private static Map<Color, Color> colorCombos = Map.ofEntries(
+        // rgb(218, 185, 126) -> rgb(79, 26, 20)
+        // rgb(137, 49, 89) -> rgb(15, 46, 17)
+        // rgb(24, 24, 24) -> rgb(202, 202, 202)
+        // rgb(39, 75, 134) -> rgb(186, 132, 108)
+        // rgb(173, 33, 33) -> rgb(200, 165, 117)
+        // rgb(226, 221, 131) -> rgb(62, 30, 64)
+        Map.entry(new Color(218, 185, 126), new Color(79, 26, 20)),
+        Map.entry(new Color(137, 49, 89), new Color(15, 46, 17)),
+        Map.entry(new Color(24, 24, 24), new Color(202, 202, 202)),
+        Map.entry(new Color(39, 75, 134), new Color(186, 132, 108)),
+        Map.entry(new Color(173, 33, 33), new Color(200, 165, 117)),
+        Map.entry(new Color(226, 221, 131), new Color(62, 30, 64))
+        
+    );
+
+
+
+    public static void main(String[] args) throws IOException {
+        test_weighted();
+
+        // LsPlus plus = new LsPlus();
+
+
+        // plus.view = new View();
+
+        // plus.onResize(TerminalUI.getTerminalWidth(), TerminalUI.getTerminalHeight());
+
+
+        // plus.run();
+    }
+
+
+    @Override
+    public void onResize(int width, int height) {
+
+        int numListViews = width / LIST_WIDTH;
+        int percentage = 100 / numListViews;
+        for (int i = 0; i < numListViews; i++) {
+            View listView = new View();
+            double dullness = RandomPlus.weighted(0, 1.0, 0.8, 0.5);
+            listView.backgroundColor = Color.random().dull(dullness);
+            listView.width = percentage;
+            listView.x = i * percentage;
+            listView.xType = UnitType.PERCENTAGE;
+            this.view.children.add(listView);
+        }
+
+
+
+        // Pair<Color, Color> colorCombo = colorCombos.get(
+        //     new Random(System.currentTimeMillis()).nextInt(colorCombos.size())
+        // );
+        // listView.backgroundColor = colorCombo.first;
+    }
+
+
+    public static Color getRandomColor() {
+        Random random = new Random(System.nanoTime());
+        return LsPlus.colorCombos.entrySet().stream()
+            .skip(random.nextInt(LsPlus.colorCombos.size()))
+            .findFirst()
+            .get()
+            .getKey();
+    }
+
+    public static Color getText(Color backgroundColor) {
+        // rgb(250, 230, 0) -> rgb(220, 200, 80)
+        Color complimentary = Color.of(255 - backgroundColor.r, 255 - backgroundColor.g, 255 - backgroundColor.b);
+        int average = (backgroundColor.r + backgroundColor.g + backgroundColor.b) / 3;
+        boolean isDark = average < 128;
+        if (isDark) {
+            return complimentary.dull(0.2).lighten(0.2);
+        }
+        else {
+            return complimentary.dull(0.2).darken(0.2);
+        }
+    }
+
+
+
+
+    // TEST METHODS DELETABLE
+
+    public static void test_weighted() {
+        double total = 0;
+        for (int i = 0; i < 100; i++) {
+            double d = RandomPlus.weighted(0, 1.0, 0.8, 0.1);
+            total += d;
+            System.out.println(d);
+        }
+        System.out.println("Average");
+        System.out.println(total / 100);
+    }
+
+    public static void test_color_hash() {
+        Map<Integer, Color> colors = new HashMap<>();
+        for (int r = 0; r < 256; r++) {
+            for (int g = 0; g < 256; g++) {
+                for (int b = 0; b < 256; b++) {
+                    Color c = new Color(r, g, b);
+                    if (colors.containsKey(c.hashCode())) {
+                        System.out.println("Duplicate color: " + c);
+                        Color dup = colors.get(c.hashCode());
+                        System.out.println(dup);
+                        System.out.println(c.hashCode());
+                        System.out.println(dup.hashCode());
+                    }
+                    colors.put(c.hashCode(), c);
+                }
+            }
+        }
+
+
     }
     
-    public void run() {
-        
-        Text text = new Text("Hi there!");
-        text.y = 10;
-        text.height = 10;
-        text.horizontalAlignment = Text.Alignment.CENTER;
-        text.verticalAlignment = Text.Alignment.CENTER;
-
-        InputBox inputBox = new InputBox();
-        inputBox.y = 20;
-        inputBox.x = 40;
-        inputBox.heightType = UnitType.FIT_CONTENT;
-        inputBox.width = 20;
-        inputBox.widthType = UnitType.FIT_CONTENT;
-        inputBox.backgroundColor = new Color(61, 61, 61); // rgb(61, 61, 61)
-        inputBox.hintColor = new Color(31, 31, 31); // rgb(31, 31, 31)
-        inputBox.hint = "Enter your name";
-        inputBox.horizontalAlignment = Text.Alignment.CENTER;
-
-
-        this.view = new View();
-        this.view.children.add( text );
-        this.view.children.add( inputBox );
-
-
-        this.render();
-
-
-    }
-
     public static void test_corners() {
         System.out.print(AnsiControl.CLEAR_SREEN);
         System.out.flush();
