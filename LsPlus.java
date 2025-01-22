@@ -1,15 +1,16 @@
+import java.io.File;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Random;
-import java.util.Set;
-
 import util.AnsiControl;
-import util.Pair;
 import util.RandomPlus;
 
 public class LsPlus extends TerminalUI {
@@ -30,33 +31,37 @@ public class LsPlus extends TerminalUI {
         Map.entry(new Color(226, 221, 131), new Color(62, 30, 64))
         
     );
+    private File selectedFile;
+    private Map<String, Color> fileColors = new HashMap<>();
+    private File[][] cells = new File[0][0];
 
 
 
     public static void main(String[] args) throws IOException {
-        test_weighted();
+        // test_weighted();
+        
 
-        // LsPlus plus = new LsPlus();
+        LsPlus plus = new LsPlus();
+        plus.selectedFile = new File(System.getProperty("user.dir"));
+
+        plus.view = new View();
+
+        plus.onResize(TerminalUI.getTerminalWidth(), TerminalUI.getTerminalHeight());
 
 
-        // plus.view = new View();
-
-        // plus.onResize(TerminalUI.getTerminalWidth(), TerminalUI.getTerminalHeight());
-
-
-        // plus.run();
+        plus.run();
     }
 
 
     @Override
     public void onResize(int width, int height) {
 
+        // set up list views
         int numListViews = width / LIST_WIDTH;
         int percentage = 100 / numListViews;
+        this.view.children.clear();
         for (int i = 0; i < numListViews; i++) {
             View listView = new View();
-            double dullness = RandomPlus.weighted(0, 1.0, 0.8, 0.5);
-            listView.backgroundColor = Color.random().dull(dullness);
             listView.width = percentage;
             listView.x = i * percentage;
             listView.xType = UnitType.PERCENTAGE;
@@ -64,11 +69,164 @@ public class LsPlus extends TerminalUI {
         }
 
 
+        // add files to list views
+        int terminalHeight = TerminalUI.getTerminalHeight();
+        this.cells = new File[numListViews][terminalHeight];
+        int depth = numListViews / 2;
 
-        // Pair<Color, Color> colorCombo = colorCombos.get(
-        //     new Random(System.currentTimeMillis()).nextInt(colorCombos.size())
-        // );
-        // listView.backgroundColor = colorCombo.first;
+
+        // SET CELLS
+        // get files in current dir and index of selected
+        int lastViewSize = 0;
+        List<File> thisLevelFiles = listDirectorySortedByDate(this.selectedFile.getParentFile());
+        int selectedIndex = thisLevelFiles.indexOf(this.selectedFile);
+
+
+        Map<Integer, List<File>> depthToFiles = new HashMap<>();
+        for (int i = 0; i < numListViews; i++) depthToFiles.put(i, new ArrayList<>());
+        Map<File, List<File>> fileToChildren = new HashMap<>();
+
+        int upperIndex = selectedIndex - 1;
+        int lowerIndex = selectedIndex + 1;
+        while (depthToFiles.get(numListViews).size() > terminalHeight && (upperIndex >= 0 || lowerIndex < thisLevelFiles.size())) {
+            if (upperIndex >= 0) {
+                File file = thisLevelFiles.get(upperIndex);
+                scanDirectory(file, depthToFiles, fileToChildren, depth, numListViews);
+                upperIndex--;
+            }
+            if (lowerIndex < thisLevelFiles.size()) {
+                File file = thisLevelFiles.get(lowerIndex);
+                scanDirectory(file, depthToFiles, fileToChildren, depth, numListViews);
+                lowerIndex++;
+            }
+        }
+
+
+        // get file at this level, go all the way down, set cells in reverse backwards
+
+
+
+
+    }
+
+    private void scanDirectory(File file, Map<Integer, List<File>> depthToFiles, Map<File, List<File>> fileToChildren, int depth, int numListViews) {
+
+        
+        // do selected file
+        depthToFiles.get(depth).add(selectedFile);
+        fileToChildren.put(this.selectedFile, listDirectorySortedByDate(this.selectedFile));
+
+        // do parent files
+        File currentFile = this.selectedFile;
+        for (int i = depth; i >= 0; i--) {
+            File parent = currentFile.getParentFile();
+            depthToFiles.get(depth - i).add(parent);
+            fileToChildren.put(parent, listDirectorySortedByDate(parent));
+            currentFile = parent;
+        }
+
+        // do children files
+        List<File> children = fileToChildren.get(this.selectedFile);
+        for (int i = depth; i < numListViews; i++) {
+            List<File> newChildren = new ArrayList<>();
+            for (File child : children) {
+                depthToFiles.get(i).add(child);
+                List<File> grandChildren = listDirectorySortedByDate(child);
+                fileToChildren.put(child, grandChildren);
+                newChildren.addAll(grandChildren);
+            }
+            children = newChildren;
+        }
+
+    }
+
+    // 27 - escape
+    // 13 - enter
+    // 27 91 68 - left
+    // 27 91 67 - right
+    // 27 91 65 - up
+    // 27 91 66 - down
+    private boolean isEscapeSeq = false;
+    @Override
+    public void onKeyPress(char c) {
+
+        // handle escape sequences
+        if (c == 27 || isEscapeSeq) {
+            isEscapeSeq = true;
+            if (c == 91) {
+                // do nothing
+            }
+            else {
+                if (c == 68) {
+                    // left
+                }
+                else if (c == 67) {
+                    // right
+                }
+                else if (c == 65) {
+                    // up
+                }
+                else if (c == 66) {
+                    // down
+                }
+                isEscapeSeq = false;
+            }
+        }
+        // handle any other key press
+        else {
+            if (c == 'q') {
+                this.exit();
+            }
+        }
+    }
+
+    public void exit() {
+        this.quit();
+        System.out.println("PATH:" + getCurrentDir());
+
+    }
+
+    // HELPER METHODS   
+    private List<List<File>> getDescendantGroupsAtDepth(File startingDir, int depth) {
+        List<List<File>> fileGroups = new ArrayList<>();
+        if (startingDir.isDirectory()) {
+            
+            // get decendants at depth
+            List<File> files = listDirectorySortedByDate(startingDir);
+            for (int i = 0; i <= depth; i++) {
+                List<File> currentDepthFiles = new ArrayList<>();
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        currentDepthFiles.addAll(listDirectorySortedByDate(file));
+                    }
+                }
+                files = currentDepthFiles;
+            }
+
+            // split files into groups
+            for (int i = 0; i < files.size(); i++) {
+                File file = files.get(i);
+                List<File> group = new ArrayList<>(listDirectorySortedByDate(file));
+                fileGroups.add(group);
+            }
+
+        }
+
+        return fileGroups;
+    }
+
+    private List<File> listDirectorySortedByDate(File file) {
+        return Arrays.stream(file.listFiles())
+            .sorted((fileFirst, fileOther) -> Long.compare(fileFirst.lastModified(), fileOther.lastModified()))
+            .toList();
+    }
+
+    private String getCurrentDir() {
+        String currentDir = this.selectedFile.getAbsolutePath();
+        if (!this.selectedFile.isDirectory()) {
+            currentDir = this.selectedFile.getParent();
+        }
+        return currentDir;
     }
 
 
@@ -79,6 +237,11 @@ public class LsPlus extends TerminalUI {
             .findFirst()
             .get()
             .getKey();
+    }
+
+    public static String getDatePretty(Date date) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        return dateFormat.format(date);
     }
 
     public static Color getText(Color backgroundColor) {
@@ -93,6 +256,15 @@ public class LsPlus extends TerminalUI {
             return complimentary.dull(0.2).darken(0.2);
         }
     }
+
+
+    // HELPER CLASSES
+    public static class FileTree {
+
+
+
+    }
+
 
 
 

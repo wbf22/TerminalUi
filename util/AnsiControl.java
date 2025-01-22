@@ -5,7 +5,7 @@ public enum AnsiControl {
     
     RESET("\u001B[0m"),
     CLEAR_SREEN("\u001B[2J\u001B[H"),
-    RESET_FONT_SIZE("\u001B[0m"),
+    BOLD("\u001B[1m"),
     SIZE("\u001B[=18h"),
     SET_FONT_SIZE("\u001B["),
     HIDE_CURSOR("\u001B[?25l"),

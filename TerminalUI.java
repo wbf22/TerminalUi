@@ -31,15 +31,16 @@ public abstract class TerminalUI {
             }
         });
 
+        // start user input thread
+        InputThread inputThread = new InputThread();
+        inputThread.start();
+
         // main loop
         try {
             this.isRunning = true;
             System.out.print(AnsiControl.HIDE_CURSOR);
             this.render();
     
-            // start user input thread
-            InputThread inputThread = new InputThread();
-            inputThread.start();
     
             // start main loop
             long lastLoop = System.currentTimeMillis();
@@ -84,21 +85,39 @@ public abstract class TerminalUI {
 
         this.isRunning = false;
         cleanUp();
+        inputThread.keepRunning = false;
     }
 
     public static class InputThread extends Thread {
 
+        public boolean keepRunning = true;
         public ConcurrentLinkedDeque<Character> queue = new ConcurrentLinkedDeque<>(); 
 
         @Override
         public void run() {
-            while(true) {
+            while(keepRunning) {
                 try {
+                    enableRawMode();
                     char c = (char) System.in.read();
                     queue.addLast(c);
-                } catch (IOException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
+            }
+            disableRawMode();
+        }
+
+        private static void enableRawMode() throws IOException {
+            String[] command = {"/bin/sh", "-c", "stty raw -echo < /dev/tty"};
+            Runtime.getRuntime().exec(command);
+        }
+    
+        private static void disableRawMode() {
+            try {
+                String[] command = {"/bin/sh", "-c", "stty sane < /dev/tty"};
+                Runtime.getRuntime().exec(command);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }
@@ -129,7 +148,7 @@ public abstract class TerminalUI {
         for (int y = 0; y < pixels[0].length; y++) {
             for (int x = 0; x < pixels.length; x++) {
                 Pixel pixel = pixels[x][y];
-                if (last_rendered == null || !last_rendered[x][y].equals(pixel)) {
+                if (last_rendered == null || x >= last_rendered.length || y >= last_rendered[0].length || !last_rendered[x][y].equals(pixel)) {
                     AnsiControl.setCursor(x + 1, y + 1);
                     System.out.print(
                         AnsiControl.background(pixel.backgroundColor.r, pixel.backgroundColor.g, pixel.backgroundColor.b) + 
@@ -224,7 +243,8 @@ public abstract class TerminalUI {
         // background
         Color backgroundColor = new Color(7, 13, 18); // rgb(7, 13, 18)
 
-        // children
+        // children and parent
+        public View parent;
         public List<View> children = new ArrayList<>();
 
         // user interaction
