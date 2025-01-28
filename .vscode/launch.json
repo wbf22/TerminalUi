@@ -6,13 +6,17 @@
     "configurations": [
         {
             "type": "java",
+            "name": "Vector",
+            "request": "launch",
+            "mainClass": "util.Vector",
+            "projectName": "TerminalUi_525bfced"
+        },
+        {
+            "type": "java",
             "name": "LsPlus",
             "request": "launch",
             "mainClass": "LsPlus",
             "projectName": "TerminalUi_525bfced"
-            // ,
-            // "console": "externalTerminal",
-            
         }
     ]
 }

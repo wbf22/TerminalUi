@@ -596,6 +596,21 @@ public abstract class TerminalUI {
             return Color.of(nr, ng, nb);
         }
 
+        public Color similar( int totalDeviation ) {
+            Random random = new Random();
+            double rDev = random.nextDouble();
+            double gDev = random.nextDouble();
+            double bDev = random.nextDouble();
+            double total = rDev + gDev + bDev;
+            rDev = rDev * totalDeviation / total;
+            gDev = gDev * totalDeviation / total;
+            bDev = bDev * totalDeviation / total;
+
+            int r = this.r + (int) rDev;
+            int g = this.g + (int) gDev;
+            int b = this.b + (int) bDev;
+            return Color.of(r, g, b);
+        }
 
         @Override
         public int hashCode() {

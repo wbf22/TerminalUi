@@ -10,8 +10,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+
 import util.AnsiControl;
 import util.RandomPlus;
+import util.Vector;
 
 public class LsPlus extends TerminalUI {
 
@@ -32,8 +34,8 @@ public class LsPlus extends TerminalUI {
         
     );
     private File selectedFile;
-    private Map<String, Color> fileColors = new HashMap<>();
-    private File[][] cells = new File[0][0];
+    private Map<File, Color> fileColors = new HashMap<>();
+    private Vector<Vector<File>> cells = new Vector<>();
 
 
 
@@ -70,43 +72,137 @@ public class LsPlus extends TerminalUI {
 
 
         // add files to list views
-        int terminalHeight = TerminalUI.getTerminalHeight();
-        this.cells = new File[numListViews][terminalHeight];
         int depth = numListViews / 2;
 
 
+
         // SET CELLS
-        // get files in current dir and index of selected
-        int lastViewSize = 0;
-        List<File> thisLevelFiles = listDirectorySortedByDate(this.selectedFile.getParentFile());
-        int selectedIndex = thisLevelFiles.indexOf(this.selectedFile);
 
+        // count total descendants for each file
+        File root = this.selectedFile.getParentFile();
+        Map<File, List<File>> fileToChildren = getDescendants(root, depth - 1, numListViews);
+        Map<File, Integer> fileToTotalDescendants = new HashMap<>();
+        List<List<File>> bottomGroups = getDescendantGroupsAtDepth(root, fileToChildren, numListViews - depth);
+        Vector<File> filesToCheck = bottomGroups.stream()
+            .flatMap(List::stream)
+            .collect(Vector.collector());
 
-        Map<Integer, List<File>> depthToFiles = new HashMap<>();
-        for (int i = 0; i < numListViews; i++) depthToFiles.put(i, new ArrayList<>());
-        Map<File, List<File>> fileToChildren = new HashMap<>();
+        while(!filesToCheck.isEmpty()) {
+            File file = filesToCheck.popBack();
+            File parent = file.getParentFile();
+            if (fileToTotalDescendants.containsKey(parent)) 
+                fileToTotalDescendants.put(parent, fileToTotalDescendants.get(parent) + fileToTotalDescendants.get(file));
+            else
+                fileToTotalDescendants.put(parent, fileToTotalDescendants.get(file));
+            
+            if (!root.equals(parent)) filesToCheck.pushFront(parent); 
+        }
 
-        int upperIndex = selectedIndex - 1;
-        int lowerIndex = selectedIndex + 1;
-        while (depthToFiles.get(numListViews).size() > terminalHeight && (upperIndex >= 0 || lowerIndex < thisLevelFiles.size())) {
-            if (upperIndex >= 0) {
-                File file = thisLevelFiles.get(upperIndex);
-                scanDirectory(file, depthToFiles, fileToChildren, depth, numListViews);
-                upperIndex--;
+        // add files to cells noting position and adjust as we go
+        Map<Coordinate, File> xyToFile = new HashMap<>();
+        Vector<File> currentLevel = new Vector<>(root);
+        int selectedY = 0;
+        for (int i = depth; i < numListViews; i++) {
+            int y = 0;
+            for (File file : currentLevel) {
+                xyToFile.put(new Coordinate(y, i), file);
+                if (file == this.selectedFile) selectedY = y;
+                y += fileToTotalDescendants.get(file);
             }
-            if (lowerIndex < thisLevelFiles.size()) {
-                File file = thisLevelFiles.get(lowerIndex);
-                scanDirectory(file, depthToFiles, fileToChildren, depth, numListViews);
-                lowerIndex++;
+            currentLevel = currentLevel.stream()
+                .flatMap(file -> fileToChildren.get(file).stream())
+                .collect(Vector.collector());
+        }
+
+
+        // place each parent
+        File current = root.getParentFile();
+        Vector<File> parents = new Vector<>();
+        for (int i = depth - 1; i >= 0; i--) {
+            xyToFile.put(
+                new Coordinate(0, depth),
+                current
+            );
+            parents.pushBack(current);
+            current = current.getParentFile();
+            if (current == null) break;
+        }
+
+        // set colors
+        fileColors.put(
+            parents.get(0),
+            Color.random().dull(0.9)
+        );
+        for (File file : parents) {
+            Color color = fileColors.get(file.getParentFile());
+            color = color.similar(10);
+            fileColors.putIfAbsent(file, color);
+        }
+
+        currentLevel = new Vector<>(root);
+        for (int i = depth; i < numListViews; i++) {
+            for (File file : currentLevel) {
+                fileColors.putIfAbsent(file, fileColors.get(file.getParentFile()).similar(10));
+            }
+            currentLevel = currentLevel.stream()
+                .flatMap(file -> fileToChildren.get(file).stream())
+                .collect(Vector.collector());
+        }
+
+
+        // set cells
+        int terminalHeight = TerminalUI.getTerminalHeight();
+        int terminalWidth = TerminalUI.getTerminalHeight();
+        this.cells = new Vector<>(terminalWidth);
+        for (int i = 0; i < terminalWidth; i++) {
+            Vector<File> column = new Vector<>(terminalHeight);
+            this.cells.set(i, column);
+        }
+
+        for (Map.Entry<Coordinate, File> entry : xyToFile.entrySet()) {
+            Coordinate coordinate = entry.getKey();
+            File file = entry.getValue();
+            int x = coordinate.x;
+            int y = coordinate.y;
+            int adjustedY = y - selectedY + (terminalHeight / 2);
+            cells.get(x).set(adjustedY, file);
+
+            // make text views for each cell
+            if (adjustedY > 0 && adjustedY < terminalHeight) {
+                Text textView = new Text();
+                textView.widthType = UnitType.PERCENTAGE;
+                textView.width = 100;
+                textView.heightType = UnitType.PIXEL;
+                textView.height = 1;
+                textView.x = 0;
+                textView.yType = UnitType.PIXEL;
+                textView.y = adjustedY;
+                textView.backgroundColor = fileColors.get(file);
+                textView.text = file.getName();
+                textView.textColor = getTextColor(textView.backgroundColor);
+                this.view.children.get(x).children.add(textView);
             }
         }
 
 
-        // get file at this level, go all the way down, set cells in reverse backwards
+        // RENDER
+        this.render();
+    }
 
-
-
-
+    private Map<File, List<File>> getDescendants(File file, int depth, int endDepth) {
+        Map<File, List<File>> fileToChildren = new HashMap<>();
+        List<File> children = List.of(file);
+        fileToChildren.put(file, children);
+        for (int i = depth; i < endDepth; i++) {
+            List<File> newChildren = new ArrayList<>();
+            for (File child : children) {
+                List<File> grandChildren = listDirectorySortedByDate(child);
+                fileToChildren.put(child, grandChildren);
+                newChildren.addAll(grandChildren);
+            }
+            children = newChildren;
+        }
+        return fileToChildren;
     }
 
     private void scanDirectory(File file, Map<Integer, List<File>> depthToFiles, Map<File, List<File>> fileToChildren, int depth, int numListViews) {
@@ -187,17 +283,19 @@ public class LsPlus extends TerminalUI {
     }
 
     // HELPER METHODS   
-    private List<List<File>> getDescendantGroupsAtDepth(File startingDir, int depth) {
+    private List<List<File>> getDescendantGroupsAtDepth(File startingDir,  Map<File, List<File>> filesToChildren, int depth) {
         List<List<File>> fileGroups = new ArrayList<>();
         if (startingDir.isDirectory()) {
             
             // get decendants at depth
-            List<File> files = listDirectorySortedByDate(startingDir);
+            List<File> files = filesToChildren.get(startingDir);
             for (int i = 0; i <= depth; i++) {
                 List<File> currentDepthFiles = new ArrayList<>();
                 for (File file : files) {
                     if (file.isDirectory()) {
-                        currentDepthFiles.addAll(listDirectorySortedByDate(file));
+                        List<File> children = filesToChildren.get(file);
+                        if (children != null)
+                            currentDepthFiles.addAll(children);
                     }
                 }
                 files = currentDepthFiles;
@@ -206,7 +304,7 @@ public class LsPlus extends TerminalUI {
             // split files into groups
             for (int i = 0; i < files.size(); i++) {
                 File file = files.get(i);
-                List<File> group = new ArrayList<>(listDirectorySortedByDate(file));
+                List<File> group = filesToChildren.get(file);
                 fileGroups.add(group);
             }
 
@@ -216,6 +314,7 @@ public class LsPlus extends TerminalUI {
     }
 
     private List<File> listDirectorySortedByDate(File file) {
+        if (!file.isDirectory()) return new ArrayList<>();
         return Arrays.stream(file.listFiles())
             .sorted((fileFirst, fileOther) -> Long.compare(fileFirst.lastModified(), fileOther.lastModified()))
             .toList();
@@ -244,8 +343,9 @@ public class LsPlus extends TerminalUI {
         return dateFormat.format(date);
     }
 
-    public static Color getText(Color backgroundColor) {
+    public static Color getTextColor(Color backgroundColor) {
         // rgb(250, 230, 0) -> rgb(220, 200, 80)
+        // rgb(250, 230, 0) -> rgb(5, 25, 255)
         Color complimentary = Color.of(255 - backgroundColor.r, 255 - backgroundColor.g, 255 - backgroundColor.b);
         int average = (backgroundColor.r + backgroundColor.g + backgroundColor.b) / 3;
         boolean isDark = average < 128;
@@ -265,6 +365,36 @@ public class LsPlus extends TerminalUI {
 
     }
 
+    public static class Coordinate {
+        public int x;
+        public int y;
+
+        public Coordinate(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        @Override
+        public int hashCode() {
+            int shift = this.x << 32;
+            int hash = shift ^ this.y;
+            shift = this.y << 13;
+            hash = hash ^ shift;
+            shift = this.x << 21;
+            hash = hash ^ shift;
+
+            return hash;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj instanceof Coordinate) {
+                Coordinate other = (Coordinate) obj;
+                return this.x == other.x && this.y == other.y;
+            }
+            return false;
+        }
+    }
 
 
 
